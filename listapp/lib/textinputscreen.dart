@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class TextInputScreen extends StatefulWidget {
+  final Map<String, dynamic>? existingIdea;
+  TextInputScreen({this.existingIdea});
+
   @override
   _TextInputScreenState createState() => _TextInputScreenState();
 }
@@ -11,12 +15,33 @@ class _TextInputScreenState extends State<TextInputScreen> {
 
   TextEditingController controller = TextEditingController();
 
+  @override
+  void initState() {
+    super.initState();
+    if (widget.existingIdea != null) {
+      text = widget.existingIdea!['text'];
+      controller.text = text;
+    }
+  }
+
   _saveIdea() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    List<String> ideas = prefs.getStringList('ideas') ?? [];
-    ideas.add(text);
-    await prefs.setStringList('ideas', ideas);
-    Navigator.pop(context);
+    // SharedPreferences prefs = await SharedPreferences.getInstance();
+    CollectionReference ideas = FirebaseFirestore.instance.collection('ideas');
+
+    if (widget.existingIdea == null) {
+      await ideas.add({
+        'text': text,
+        'created': FieldValue.serverTimestamp(),
+      });
+      Navigator.pop(context, true); // pop with a value
+      return;
+    } else {
+      await ideas.doc(widget.existingIdea!['id']).update({
+        'text': text,
+        'updated': FieldValue.serverTimestamp(),
+      });
+      Navigator.pop(context, text); // pop with a value
+    }
   }
 
   @override
